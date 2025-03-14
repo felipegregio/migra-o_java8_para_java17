@@ -1,0 +1,186 @@
+Passos da migração:
+
+1 - alterei a versão do java no arquivo pom.xml na linha 22 
+estava:         <java.version>1.8</java.version> 
+ficou:          <java.version>17</java.version>
+
+2 - alterei a versão do spring boot no arquivo pom.xml na linha 17
+estava: <version>2.6.12</version>
+ficou:  <version>3.2.5</version>
+
+3 - alterei a dependencia do bean validation para o jakarta.*, pois o spring 3 utiliza o jakarta.* ao invés do javax.* na linha 58 
+P.S:tomei a liberdade de adicionar a implementação do Hibernate Validator e a dependência de Jakarta EL, pois retornaram alguns erros quando tentei rodar o comando mvn clean install para instalar as dependencias novas da migração.
+estava: <!--Javax -->
+        <dependency>
+        	<groupId>javax.validation</groupId> 
+        	<artifactId>validation-api</artifactId> 
+        	<version>1.1.0.Final</version> 
+        	<scope>provided</scope> 
+        </dependency> 
+ficou: <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+            <version>3.0.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.hibernate.validator</groupId>
+            <artifactId>hibernate-validator</artifactId>
+            <version>7.0.2.Final</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.glassfish</groupId>
+            <artifactId>jakarta.el</artifactId>
+            <version>5.0.0</version>
+        </dependency>
+
+4 - atualizei o JUnit para JUnit 5, pois JUnit 4 está obsoleto
+P.S: adicionei também a dependência do JUnit 5 Engine, que é necessária para executar os testes
+estava: <!-- JUnit 4 -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+ficou: <!-- JUnit 5 - Plataforma e API Principal -->
+    <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-api</artifactId>
+        <version>5.10.2</version>
+        <scope>test</scope>
+    </dependency>
+    
+    <!-- JUnit 5 - Motor de Execução -->
+    <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-engine</artifactId>
+        <version>5.10.2</version>
+        <scope>test</scope>
+    </dependency>
+    
+    <!-- JUnit 5 - Console Launcher (opcional, para rodar de linha de comando) -->
+    <dependency>
+        <groupId>org.junit.platform</groupId>
+        <artifactId>junit-platform-console-standalone</artifactId>
+        <version>1.10.2</version>
+        <scope>test</scope>
+    </dependency>
+
+5 - atualizei a versão do plugin do pitest para uma compativel com o JDK 17
+estava:<plugins>
+            <plugin>
+                <groupId>org.pitest</groupId>
+                <artifactId>pitest-maven</artifactId>
+                <version>1.4.3</version>
+                <executions>
+                    <execution>
+                        <id>pi-report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>mutationCoverage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <targetClasses>
+                        <param>com.example.dummyjson.*</param>
+                    </targetClasses>
+                    <targetTests>
+                        <param>com.example.dummyjson.*</param>
+                    </targetTests>
+                </configuration>
+            </plugin>
+        </plugins>
+ficou:<plugins>
+    <plugin>
+        <groupId>org.pitest</groupId>
+        <artifactId>pitest-maven</artifactId>
+        <version>1.7.0</version> <!-- Versão mais recente -->
+        <executions>
+            <execution>
+                <id>pi-report</id>
+                <phase>test</phase>
+                <goals>
+                    <goal>mutationCoverage</goal>
+                </goals>
+            </execution>
+        </executions>
+        <configuration>
+            <targetClasses>
+                <param>com.example.dummyjson.*</param>
+            </targetClasses>
+            <targetTests>
+                <param>com.example.dummyjson.*</param>
+            </targetTests>
+        </configuration>
+    </plugin>
+</plugins>
+
+6 - alterei os namespaces encontrados no projetos por exemplo:
+javax.validation para jakarta.validation
+
+7 - alterei a classe do RestTemplate (no config RestTemplateConfig.java@Configuration
+public class RestTemplateConfig {
+
+    @Bean
+    public WebClient.Builder webClientBuilder() {
+        return WebClient.builder();
+    }
+}
+
+8 - alterei o arquivo application.yaml para definir a URL da API de forma parametrizada. 
+ficou assim o arquivo:
+server:
+  port: 8080
+
+api:
+  url: "https://dummyjson.com"
+
+9 - alterei o productService para utilizar o WebClient ao invés do RestTemplate, ficando assim:
+@Service
+public class ProductService {
+
+    private final WebClient.Builder webClientBuilder;
+
+    @Autowired
+    public ProductService(WebClient.Builder webClientBuilder) {
+        this.webClientBuilder = webClientBuilder;
+    }
+
+    public Mono<Product> getProduct(String productId) {
+        return webClientBuilder.baseUrl("https://dummyjson.com")
+                               .build()
+                               .get()
+                               .uri("/products/{id}", productId)
+                               .retrieve()
+                               .bodyToMono(Product.class);
+    }
+}
+
+a interação com a API agora retorna um Mono<Product>, pois o WebClient utiliza a programação reativa.
+
+10 - Alterei a classe ProductServiceTest para substituir os testes unitários por testes de integração utilizando @SpringBootTest. 
+// - Estamos usando @SpringBootTest para inicializar o contexto do Spring e executar o servidor de teste.
+// - WebTestClient é uma ferramenta moderna do Spring para realizar testes de integração de endpoints HTTP.
+// - O teste foca em garantir que a API de produtos retorne os dados corretos para o produto requisitado.
+// - A URL é construída com a porta dinâmica para simular uma requisição real ao servidor.
+// - As asserções verificam se o produto retornado tem os atributos corretos.
+
+11 - Alterações na classe Product.java
+Validação de campos: adicinei anotações de validação para garantir que os dados sejam corretos:
+O campo id não pode ser nulo e deve estar entre 0 e 999.
+Os campos title, description e price não podem ser nulos.
+Essas validações garantem que os dados inseridos sejam válidos e ajudem a evitar erros.
+
+12 - Alterações no teste ProductTest.java
+Substituí o uso de new Double("2.1") por Double.parseDouble("2.1") para evitar o uso de métodos obsoletos, conforme recomendado pelo Java.
+Usei tipos primitivos (double) em vez de objetos Double para simplificar e evitar a depreciação.
+Ajustei a comparação de preços no assertEquals, adicionando uma margem de erro (0.001), pois comparações com valores de ponto flutuante podem ser imprecisas.
+Fiz isso para melhorar devido a um alerta de depreciação do Double que vi no log. (comentários no arquivo).
+
+13 - criei os arquivos application-dev.yaml e application-prod.yaml de configuração específicos para os ambientes de desenvolvimento e produção, respectivamente.
+O perfil ativo é definido pela propriedade spring.profiles.active.
+
+14 - criei o HealthController que retorna OK em caso de microserviço saúdavel e HealthControllerTest para garantir que o /health sempre retorne o valor correto.
