@@ -1,0 +1,5 @@
+server:
+  port: 8080  # Porta para o ambiente de produção
+
+api:
+  url: "https://dummyjson.com"  # URL para a API de produção

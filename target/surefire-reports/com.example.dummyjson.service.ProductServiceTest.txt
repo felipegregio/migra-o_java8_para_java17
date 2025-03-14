@@ -1,0 +1,8 @@
+-------------------------------------------------------------------------------
+Test set: com.example.dummyjson.service.ProductServiceTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.309 s <<< FAILURE! - in com.example.dummyjson.service.ProductServiceTest
+com.example.dummyjson.service.ProductServiceTest.testGetProduct  Time elapsed: 0.254 s  <<< FAILURE!
+java.lang.AssertionError: Status expected:<200 OK> but was:<404 NOT_FOUND>
+	at com.example.dummyjson.service.ProductServiceTest.testGetProduct(ProductServiceTest.java:40)
+

@@ -1,0 +1,5 @@
+server:
+  port: 8081  # Porta para o ambiente de desenvolvimento
+
+api:
+  url: "http://localhost:8080"  # URL para o ambiente de desenvolvimento
